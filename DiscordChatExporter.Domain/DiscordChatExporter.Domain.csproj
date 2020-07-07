@@ -2,6 +2,7 @@
   <Import Project="../DiscordChatExporter.props" />
 
   <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="15.0.5" />
     <PackageReference Include="Polly" Version="7.2.1" />
     <PackageReference Include="Scriban" Version="2.1.2" />
     <PackageReference Include="Tyrrrz.Extensions" Version="1.6.5" />
