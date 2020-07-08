@@ -1,120 +1,59 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
+﻿using System.Globalization;
 using System.IO;
+using System.Threading.Tasks;
 using CsvHelper;
+using DiscordChatExporter.Domain.Discord;
 using DiscordChatExporter.Domain.Exporting.Writers;
 
 namespace DiscordChatExporter.Stats
 {
-    class Program
+    internal static class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            var csvPath = "/home/tauchner/Documents/Direct Messages - Private - Annakamisama [535518065610457118].csv";
-            var statsDateCsv = csvPath + " stats_date.csv";
-            var statsTimeCsv = csvPath + " stats_time.csv";
+            var arguments = new Arguments(args);
+            var statsDateCsv = args[0] + " stats_date.csv";
+            var statsTimeCsv = args[0] + " stats_time.csv";
             var dateStats = new LongCounter<string>();
             var timeStats = new LongCounter<int>();
 
-            var messageWriter = new CsvMessageWriter();
+            var client = new DiscordClient(new AuthToken(AuthTokenType.User,
+                args[1]));
 
-            using (var reader = new StreamReader(csvPath))
+            var messages = client.GetMessagesAsync(args[0]);
+
+            await foreach (var message in messages)
             {
-                using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-                var records = csv.GetRecords<Message>();
-
-                foreach (var record in records)
-                {
-                    dateStats.Add(record.Date.ToShortDateString());
-                    timeStats.Add(record.Date.Hour);
-
-                    if (record.Date.Hour == 4)
-                    {
-                        Console.Out.WriteLine(record);
-                    }
-                }
+                var messageDate = message.Timestamp.ToString().Substring(0, 10);
+                var messageHour = int.Parse(message.Timestamp.ToString().Substring(11, 2));
+                dateStats.Add(messageDate);
+                timeStats.Add(messageHour);
             }
 
-            using (File.Create(statsDateCsv))
+
+            await using (File.Create(statsDateCsv))
             {
             }
 
-            using (File.Create(statsTimeCsv))
+            await using (File.Create(statsTimeCsv))
             {
             }
-
+            
             var statsDateWriter = new StreamWriter(statsDateCsv);
-            foreach (var dateStat in dateStats)
+            foreach (var (key, value) in dateStats)
             {
-                statsDateWriter.WriteLine(dateStat.Key + "," + dateStat.Value);
+                await statsDateWriter.WriteLineAsync(key + "," + value);
             }
-            statsDateWriter.Flush();
+            
+            await statsDateWriter.FlushAsync();
             
             var statsTimeWriter = new StreamWriter(statsTimeCsv);
-            foreach (var timeStat in timeStats)
+            foreach (var (key, value) in timeStats)
             {
-                statsTimeWriter.WriteLine(timeStat.Key + "," + timeStat.Value);
+                await statsTimeWriter.WriteLineAsync(key + "," + value);
             }
-            statsTimeWriter.Flush();
-        }
-    }
-
-    class LongCounter<K> : Dictionary<K, long>
-    {
-        public void Add(K key)
-        {
-            if (!ContainsKey(key))
-            {
-                base.Add(key, 1);
-            }
-            else
-            {
-                this[key] += 1;
-            }
-        }
-
-
-        public void Add(K key, long value)
-        {
-            if (!ContainsKey(key))
-            {
-                base.Add(key, value);
-            }
-            else
-            {
-                this[key] += value;
-            }
-        }
-    }
-
-    class Message
-    {
-        public string AuthorID { get; set; }
-        public string Author { get; set; }
-        public DateTime Date { get; set; }
-        public string Content { get; set; }
-        public string Attachments { get; set; }
-        public string Reactions { get; set; }
-
-        public Message(string authorId, string author, DateTime date, string content, string attachments,
-            string reactions)
-        {
-            AuthorID = authorId;
-            this.Author = author;
-            this.Date = date;
-            this.Content = content;
-            this.Attachments = attachments;
-            this.Reactions = reactions;
-        }
-
-        public Message()
-        {
-        }
-
-        public override string ToString()
-        {
-            return Author + " wrote on " + Date.ToShortDateString() + ":\r\n" + Content;
+            
+            await statsTimeWriter.FlushAsync();
         }
     }
 }
