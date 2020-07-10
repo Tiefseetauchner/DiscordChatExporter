@@ -15,6 +15,7 @@
       <PackageReference Include="CsvHelper" Version="15.0.5" />
       <PackageReference Include="FileHelpers" Version="3.4.1" />
       <PackageReference Include="OfficeOpenXml.Core.ExcelPackage" Version="1.0.0" />
+      <PackageReference Include="SpreadsheetLight" Version="3.4.11" />
     </ItemGroup>
 
 </Project>

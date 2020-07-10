@@ -1,7 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Threading.Tasks;
+using ClosedXML.Excel;
 using DiscordChatExporter.Domain.Discord;
+using DocumentFormat.OpenXml.Spreadsheet;
 using OfficeOpenXml.Core.ExcelPackage;
 
 namespace DiscordChatExporter.Stats
@@ -32,10 +34,11 @@ namespace DiscordChatExporter.Stats
                 timeStats.Add(messageHour);
             }
 
-            using var statsXlsx = new ExcelPackage(new FileInfo(statsXlsxPath));
-            var sheets = statsXlsx.Workbook.Worksheets;
-            var dateStatSheet = sheets.Add("DateStats");
-            var timeStatSheet = sheets.Add("TimeStats");
+            using var workbook = new XLWorkbook();
+
+            var worksheets = workbook.Worksheets;
+            var dateStatSheet = worksheets.Add("DateStats");
+            var timeStatSheet = worksheets.Add("TimeStats");
 
             var row = 0;
             foreach (var (key, value) in dateStats)
@@ -53,7 +56,7 @@ namespace DiscordChatExporter.Stats
                 timeStatSheet.Cell(row, 2).Value = value.ToString();
             }
 
-            statsXlsx.Save();
+            workbook.SaveAs(statsXlsxPath);
         }
     }
 }
