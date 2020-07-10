@@ -1,19 +1,21 @@
-﻿using System.Globalization;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
-using CsvHelper;
 using DiscordChatExporter.Domain.Discord;
-using DiscordChatExporter.Domain.Exporting.Writers;
+using OfficeOpenXml.Core.ExcelPackage;
 
 namespace DiscordChatExporter.Stats
 {
     internal static class Program
     {
-        static async Task Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            var arguments = new Arguments(args);
-            var statsDateCsv = args[0] + " stats_date.csv";
-            var statsTimeCsv = args[0] + " stats_time.csv";
+            if (args.Length != 2)
+            {
+                throw new ArgumentException("Not enough arguments");
+            }
+
+            var statsXlsxPath = args[0] + "_stats.xlsx";
             var dateStats = new LongCounter<string>();
             var timeStats = new LongCounter<int>();
 
@@ -30,30 +32,28 @@ namespace DiscordChatExporter.Stats
                 timeStats.Add(messageHour);
             }
 
+            using var statsXlsx = new ExcelPackage(new FileInfo(statsXlsxPath));
+            var sheets = statsXlsx.Workbook.Worksheets;
+            var dateStatSheet = sheets.Add("DateStats");
+            var timeStatSheet = sheets.Add("TimeStats");
 
-            await using (File.Create(statsDateCsv))
-            {
-            }
-
-            await using (File.Create(statsTimeCsv))
-            {
-            }
-            
-            var statsDateWriter = new StreamWriter(statsDateCsv);
+            var row = 0;
             foreach (var (key, value) in dateStats)
             {
-                await statsDateWriter.WriteLineAsync(key + "," + value);
+                row++;
+                dateStatSheet.Cell(row, 1).Value = key;
+                dateStatSheet.Cell(row, 2).Value = value.ToString();
             }
-            
-            await statsDateWriter.FlushAsync();
-            
-            var statsTimeWriter = new StreamWriter(statsTimeCsv);
+
+            row = 0;
             foreach (var (key, value) in timeStats)
             {
-                await statsTimeWriter.WriteLineAsync(key + "," + value);
+                row++;
+                timeStatSheet.Cell(row, 1).Value = key.ToString();
+                timeStatSheet.Cell(row, 2).Value = value.ToString();
             }
-            
-            await statsTimeWriter.FlushAsync();
+
+            statsXlsx.Save();
         }
     }
 }
