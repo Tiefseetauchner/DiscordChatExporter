@@ -3,8 +3,6 @@ using System.IO;
 using System.Threading.Tasks;
 using ClosedXML.Excel;
 using DiscordChatExporter.Domain.Discord;
-using DocumentFormat.OpenXml.Spreadsheet;
-using OfficeOpenXml.Core.ExcelPackage;
 
 namespace DiscordChatExporter.Stats
 {
@@ -12,19 +10,22 @@ namespace DiscordChatExporter.Stats
     {
         public static async Task Main(string[] args)
         {
-            if (args.Length != 2)
+            if (args.Length != 4)
             {
                 throw new ArgumentException("Not enough arguments");
             }
-
-            var statsXlsxPath = args[0] + "_stats.xlsx";
+            
+            var channelId = args[0];
+            var authToken = new AuthToken(AuthTokenType.User, args[1]);
+            var templatePath = args[2];
+            var statsXlsxPath = args[3];
+            
             var dateStats = new LongCounter<string>();
             var timeStats = new LongCounter<int>();
+            
+            var client = new DiscordClient(authToken);
 
-            var client = new DiscordClient(new AuthToken(AuthTokenType.User,
-                args[1]));
-
-            var messages = client.GetMessagesAsync(args[0]);
+            var messages = client.GetMessagesAsync(channelId);
 
             await foreach (var message in messages)
             {
@@ -34,13 +35,13 @@ namespace DiscordChatExporter.Stats
                 timeStats.Add(messageHour);
             }
 
-            using var workbook = new XLWorkbook();
+            using var workbook = new XLWorkbook(templatePath);
 
             var worksheets = workbook.Worksheets;
-            var dateStatSheet = worksheets.Add("DateStats");
-            var timeStatSheet = worksheets.Add("TimeStats");
+            var dateStatSheet = worksheets.Worksheet("DateStats");
+            var timeStatSheet = worksheets.Worksheet("TimeStats");
 
-            var row = 0;
+            var row = 1;
             foreach (var (key, value) in dateStats)
             {
                 row++;
@@ -48,12 +49,10 @@ namespace DiscordChatExporter.Stats
                 dateStatSheet.Cell(row, 2).Value = value.ToString();
             }
 
-            row = 0;
             foreach (var (key, value) in timeStats)
             {
-                row++;
-                timeStatSheet.Cell(row, 1).Value = key.ToString();
-                timeStatSheet.Cell(row, 2).Value = value.ToString();
+                timeStatSheet.Cell(key + 2, 1).Value = key.ToString();
+                timeStatSheet.Cell(key + 2, 2).Value = value.ToString();
             }
 
             workbook.SaveAs(statsXlsxPath);
