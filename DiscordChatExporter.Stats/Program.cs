@@ -83,6 +83,8 @@ namespace DiscordChatExporter.Stats
       var dateStatSheet = worksheets.Worksheet("DateStats");
       var timeStatSheet = worksheets.Worksheet("TimeStats");
       var weekdayStatSheet = worksheets.Worksheet("WeekdayStats");
+      var charStatSheet = worksheets.Worksheet("CharacterStats");
+      var wordStatSheet = worksheets.Worksheet("WordStats");
 
       welcomeSheet.Cell(2, 2).Value = channel.Name;
       welcomeSheet.Cell(2, 4).Value = "\"" + channel.Id + "\"";
@@ -137,6 +139,22 @@ namespace DiscordChatExporter.Stats
       foreach (var (key, value) in weekdayStats)
       {
         weekdayStatSheet.Cell(key + 2, 2).Value = value.ToString();
+      }
+
+      row = 1;
+      foreach (var (key, value) in characterStats.OrderByDescending(pair => pair.Value))
+      {
+        row++;
+        charStatSheet.Cell(row, 1).Value = key;
+        charStatSheet.Cell(row, 2).Value = value.ToString();
+      }
+
+      row = 1;
+      foreach (var (key, value) in wordStats.OrderByDescending(pair => pair.Value))
+      {
+        row++;
+        wordStatSheet.Cell(row, 1).Value = key;
+        wordStatSheet.Cell(row, 2).Value = value.ToString();
       }
 
       welcomeSheet.Cell(12, 2).Value = stopwatch.ElapsedMilliseconds / 1000.0;
