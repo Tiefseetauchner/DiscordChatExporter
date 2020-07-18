@@ -20,6 +20,7 @@ namespace DiscordChatExporter.Stats
 
       var dateStats = new LongCounter<string>();
       var timeStats = new LongCounter<int>();
+      var weekdayStats = new LongCounter<int>();
 
       var client = new DiscordClient(authToken);
 
@@ -29,8 +30,10 @@ namespace DiscordChatExporter.Stats
       {
         var messageDate = message.Timestamp.ToString().Substring(0, 10);
         var messageHour = int.Parse(message.Timestamp.ToString().Substring(11, 2));
+        var messageWeekday = (int) message.Timestamp.DayOfWeek - 1 >= 0 ? (int) message.Timestamp.DayOfWeek - 1 : 6;
         dateStats.Add(messageDate);
         timeStats.Add(messageHour);
+        weekdayStats.Add(messageWeekday);
       }
 
       using var workbook = new XLWorkbook(templatePath);
@@ -38,6 +41,7 @@ namespace DiscordChatExporter.Stats
       var worksheets = workbook.Worksheets;
       var dateStatSheet = worksheets.Worksheet("DateStats");
       var timeStatSheet = worksheets.Worksheet("TimeStats");
+      var weekdayStatSheet = worksheets.Worksheet("WeekdayStats");
 
       var row = 1;
       foreach (var (key, value) in dateStats)
@@ -51,6 +55,11 @@ namespace DiscordChatExporter.Stats
       {
         timeStatSheet.Cell(key + 2, 1).Value = key.ToString();
         timeStatSheet.Cell(key + 2, 2).Value = value.ToString();
+      }
+
+      foreach (var (key, value) in weekdayStats)
+      {
+        weekdayStatSheet.Cell(key + 2, 2).Value = value.ToString();
       }
 
       workbook.SaveAs(statsXlsxPath);
