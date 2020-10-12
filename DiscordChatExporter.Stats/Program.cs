@@ -15,18 +15,25 @@ namespace DiscordChatExporter.Stats
 {
     internal static class Program
     {
+        private static StatisticArguments _arguments;
+
         public static async Task Main(string[] args)
+        {
+            _arguments = Args.Parse<StatisticArguments>(args);
+            
+            getStatistics();
+        }
+
+        private static async Task getStatistics()
         {
             var stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            var arguments = Args.Parse<StatisticArguments>(args);
-
-            var channelId = arguments.ChannelId;
-            var authToken = new AuthToken(AuthTokenType.User, arguments.AuthToken);
-            var templatePath = arguments.TemplatePath;
-            var statsXlsxPath = arguments.ExportPath;
-            var wordsToKeepTrackOf = arguments.Words;
+            var channelId = _arguments.ChannelId;
+            var authToken = new AuthToken(AuthTokenType.User, _arguments.AuthToken);
+            var templatePath = _arguments.TemplatePath;
+            var statsXlsxPath = _arguments.ExportPath;
+            var wordsToKeepTrackOf = _arguments.Words;
 
             var dateStats = new LongCounter<string>();
             var timeStats = new LongCounter<int>();
@@ -99,14 +106,6 @@ namespace DiscordChatExporter.Stats
             }
 
             using var workbook = new XLWorkbook(templatePath);
-
-            var worksheets = workbook.Worksheets;
-            var welcomeSheet = worksheets.Worksheet("WelcomeSheet");
-            var dateStatSheet = worksheets.Worksheet("DateStats");
-            var timeStatSheet = worksheets.Worksheet("TimeStats");
-            var weekdayStatSheet = worksheets.Worksheet("WeekdayStats");
-            var charStatSheet = worksheets.Worksheet("CharacterStats");
-            var wordStatSheet = worksheets.Worksheet("WordStats");
 
             var row = 1;
             foreach (var word in wordsToKeepTrackOf)
@@ -201,6 +200,14 @@ namespace DiscordChatExporter.Stats
 
             workbook.SaveAs(statsXlsxPath + "\\export_" + channel.Name + ".xlsx");
         }
+
+        public static void writeData()
+        {
+            switch (_arguments.ExportType())
+            {
+                
+            }
+        }
     }
 
     [ArgExceptionBehavior(ArgExceptionPolicy.StandardExceptionHandling)]
@@ -210,6 +217,7 @@ namespace DiscordChatExporter.Stats
         [ArgRequired(PromptIfMissing = true)] public string AuthToken { get; set; }
         [ArgRequired(PromptIfMissing = true)] public string TemplatePath { get; set; }
         [ArgRequired(PromptIfMissing = true)] public string ExportPath { get; set; }
+        [ArgRequired(PromptIfMissing = true)] public string ExportType { get; set; }
 
         [ArgDescription("Some funny business, don't @ me")]
         public List<string> Words { get; set; }
