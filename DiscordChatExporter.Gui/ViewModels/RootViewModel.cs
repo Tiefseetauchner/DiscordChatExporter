@@ -70,7 +70,7 @@ namespace DiscordChatExporter.Gui.ViewModels
                 (sender, args) => IsProgressIndeterminate = ProgressManager.IsActive && ProgressManager.Progress.IsEither(0, 1));
         }
 
-        private async Task HandleAutoUpdateAsync()
+        private async ValueTask HandleAutoUpdateAsync()
         {
             try
             {
@@ -108,6 +108,15 @@ namespace DiscordChatExporter.Gui.ViewModels
                 TokenValue = _settingsService.LastToken.Value;
             }
 
+            if (_settingsService.IsDarkModeEnabled)
+            {
+                App.SetDarkTheme();
+            }
+            else
+            {
+                App.SetLightTheme();
+            }
+
             await HandleAutoUpdateAsync();
         }
 
@@ -134,7 +143,7 @@ namespace DiscordChatExporter.Gui.ViewModels
 
             try
             {
-                var tokenValue = TokenValue?.Trim('"');
+                var tokenValue = TokenValue?.Trim('"', ' ');
                 if (string.IsNullOrWhiteSpace(tokenValue))
                     return;
 
@@ -150,11 +159,7 @@ namespace DiscordChatExporter.Gui.ViewModels
                 var guildChannelMap = new Dictionary<Guild, IReadOnlyList<Channel>>();
                 await foreach (var guild in discord.GetUserGuildsAsync())
                 {
-                    var channels = await discord.GetGuildChannelsAsync(guild.Id);
-                    guildChannelMap[guild] = channels
-                        .OrderBy(c => c.Category)
-                        .ThenBy(c => c.Name)
-                        .ToArray();
+                    guildChannelMap[guild] = await discord.GetGuildChannelsAsync(guild.Id);
                 }
 
                 GuildChannelMap = guildChannelMap;
@@ -190,9 +195,20 @@ namespace DiscordChatExporter.Gui.ViewModels
 
                 try
                 {
-                    await exporter.ExportAsync(dialog.Guild!, channel!,
-                        dialog.OutputPath!, dialog.SelectedFormat, _settingsService.DateFormat,
-                        dialog.PartitionLimit, dialog.After, dialog.Before, operation);
+                    var request = new ExportRequest(
+                        dialog.Guild!,
+                        channel!,
+                        dialog.OutputPath!,
+                        dialog.SelectedFormat,
+                        dialog.After,
+                        dialog.Before,
+                        dialog.PartitionLimit,
+                        dialog.ShouldDownloadMedia,
+                        _settingsService.ShouldReuseMedia,
+                        _settingsService.DateFormat
+                    );
+
+                    await exporter.ExportChannelAsync(request, operation);
 
                     Interlocked.Increment(ref successfulExportCount);
                 }

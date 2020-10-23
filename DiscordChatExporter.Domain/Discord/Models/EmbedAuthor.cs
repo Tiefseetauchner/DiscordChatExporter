@@ -1,9 +1,9 @@
 using System.Text.Json;
-using DiscordChatExporter.Domain.Internal;
+using DiscordChatExporter.Domain.Internal.Extensions;
 
 namespace DiscordChatExporter.Domain.Discord.Models
 {
-    // https://discordapp.com/developers/docs/resources/channel#embed-object-embed-author-structure
+    // https://discord.com/developers/docs/resources/channel#embed-object-embed-author-structure
     public partial class EmbedAuthor
     {
         public string? Name { get; }

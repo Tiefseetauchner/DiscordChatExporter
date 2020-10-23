@@ -2,12 +2,12 @@
 using System.Linq;
 using System.Text.Json;
 using DiscordChatExporter.Domain.Discord.Models.Common;
-using DiscordChatExporter.Domain.Internal;
+using DiscordChatExporter.Domain.Internal.Extensions;
 using Tyrrrz.Extensions;
 
 namespace DiscordChatExporter.Domain.Discord.Models
 {
-    // https://discordapp.com/developers/docs/resources/channel#channel-object-channel-types
+    // https://discord.com/developers/docs/resources/channel#channel-object-channel-types
     // Order of enum fields needs to match the order in the docs.
     public enum ChannelType
     {
@@ -20,7 +20,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
         GuildStore
     }
 
-    // https://discordapp.com/developers/docs/resources/channel#channel-object
+    // https://discord.com/developers/docs/resources/channel#channel-object
     public partial class Channel : IHasId
     {
         public string Id { get; }
@@ -86,7 +86,8 @@ namespace DiscordChatExporter.Domain.Discord.Models
                 guildId ?? Guild.DirectMessages.Id,
                 category ?? GetDefaultCategory(type),
                 name,
-                topic);
+                topic
+            );
         }
     }
 }

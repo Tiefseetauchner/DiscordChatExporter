@@ -8,26 +8,24 @@ namespace DiscordChatExporter.Domain.Exporting
 {
     internal partial class MessageExporter : IAsyncDisposable
     {
-        private readonly ExportOptions _options;
         private readonly ExportContext _context;
 
-        private long _renderedMessageCount;
+        private long _messageCount;
         private int _partitionIndex;
         private MessageWriter? _writer;
 
-        public MessageExporter(ExportOptions options, ExportContext context)
+        public MessageExporter(ExportContext context)
         {
-            _options = options;
             _context = context;
         }
 
         private bool IsPartitionLimitReached() =>
-            _renderedMessageCount > 0 &&
-            _options.PartitionLimit != null &&
-            _options.PartitionLimit != 0 &&
-            _renderedMessageCount % _options.PartitionLimit == 0;
+            _messageCount > 0 &&
+            _context.Request.PartitionLimit != null &&
+            _context.Request.PartitionLimit != 0 &&
+            _messageCount % _context.Request.PartitionLimit == 0;
 
-        private async Task ResetWriterAsync()
+        private async ValueTask ResetWriterAsync()
         {
             if (_writer != null)
             {
@@ -37,7 +35,7 @@ namespace DiscordChatExporter.Domain.Exporting
             }
         }
 
-        private async Task<MessageWriter> GetWriterAsync()
+        private async ValueTask<MessageWriter> GetWriterAsync()
         {
             // Ensure partition limit has not been exceeded
             if (IsPartitionLimitReached())
@@ -50,23 +48,23 @@ namespace DiscordChatExporter.Domain.Exporting
             if (_writer != null)
                 return _writer;
 
-            var filePath = GetPartitionFilePath(_options.BaseFilePath, _partitionIndex);
+            var filePath = GetPartitionFilePath(_context.Request.OutputBaseFilePath, _partitionIndex);
 
-            var dirPath = Path.GetDirectoryName(_options.BaseFilePath);
+            var dirPath = Path.GetDirectoryName(_context.Request.OutputBaseFilePath);
             if (!string.IsNullOrWhiteSpace(dirPath))
                 Directory.CreateDirectory(dirPath);
 
-            var writer = CreateMessageWriter(filePath, _options.Format, _context);
+            var writer = CreateMessageWriter(filePath, _context.Request.Format, _context);
             await writer.WritePreambleAsync();
 
             return _writer = writer;
         }
 
-        public async Task ExportMessageAsync(Message message)
+        public async ValueTask ExportMessageAsync(Message message)
         {
             var writer = await GetWriterAsync();
             await writer.WriteMessageAsync(message);
-            _renderedMessageCount++;
+            _messageCount++;
         }
 
         public async ValueTask DisposeAsync() => await ResetWriterAsync();

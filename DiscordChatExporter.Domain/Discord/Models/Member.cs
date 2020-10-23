@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using DiscordChatExporter.Domain.Discord.Models.Common;
-using DiscordChatExporter.Domain.Internal;
+using DiscordChatExporter.Domain.Internal.Extensions;
 
 namespace DiscordChatExporter.Domain.Discord.Models
 {
-    // https://discordapp.com/developers/docs/resources/guild#guild-member-object
+    // https://discord.com/developers/docs/resources/guild#guild-member-object
     public partial class Member : IHasId
     {
         public string Id => User.Id;

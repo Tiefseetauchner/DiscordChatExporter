@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Text.Json;
-using DiscordChatExporter.Domain.Internal;
+using DiscordChatExporter.Domain.Internal.Extensions;
 
 namespace DiscordChatExporter.Domain.Discord.Models
 {
-    // https://discordapp.com/developers/docs/resources/channel#embed-object
+    // https://discord.com/developers/docs/resources/channel#embed-object
     public partial class Embed
     {
         public string? Title { get; }

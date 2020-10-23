@@ -26,11 +26,35 @@ namespace DiscordChatExporter.Gui.ViewModels.Dialogs
 
         public ExportFormat SelectedFormat { get; set; }
 
-        public DateTimeOffset? After { get; set; }
+        // This date/time abomination is required because we use separate controls to set these
 
-        public DateTimeOffset? Before { get; set; }
+        public DateTimeOffset? AfterDate { get; set; }
+
+        public bool IsAfterDateSet => AfterDate != null;
+
+        public TimeSpan? AfterTime { get; set; }
+
+        public DateTimeOffset? After => AfterDate?.Add(AfterTime ?? TimeSpan.Zero);
+
+        public DateTimeOffset? BeforeDate { get; set; }
+
+        public bool IsBeforeDateSet => BeforeDate != null;
+
+        public TimeSpan? BeforeTime { get; set; }
+
+        public DateTimeOffset? Before => BeforeDate?.Add(BeforeTime ?? TimeSpan.Zero);
 
         public int? PartitionLimit { get; set; }
+
+        public bool ShouldDownloadMedia { get; set; }
+
+        // Whether to show the "advanced options" by default when the dialog opens.
+        // This is active if any of the advanced options are set to non-default values.
+        public bool IsAdvancedSectionDisplayedByDefault =>
+            After != default ||
+            Before != default ||
+            PartitionLimit != default ||
+            ShouldDownloadMedia != default;
 
         public ExportSetupViewModel(DialogManager dialogManager, SettingsService settingsService)
         {
@@ -40,6 +64,7 @@ namespace DiscordChatExporter.Gui.ViewModels.Dialogs
             // Persist preferences
             SelectedFormat = _settingsService.LastExportFormat;
             PartitionLimit = _settingsService.LastPartitionLimit;
+            ShouldDownloadMedia = _settingsService.LastShouldDownloadMedia;
         }
 
         public void Confirm()
@@ -47,33 +72,23 @@ namespace DiscordChatExporter.Gui.ViewModels.Dialogs
             // Persist preferences
             _settingsService.LastExportFormat = SelectedFormat;
             _settingsService.LastPartitionLimit = PartitionLimit;
-
-            // Clamp 'after' and 'before' values
-            if (After > Before)
-                After = Before;
-            if (Before < After)
-                Before = After;
+            _settingsService.LastShouldDownloadMedia = ShouldDownloadMedia;
 
             // If single channel - prompt file path
             if (IsSingleChannel)
             {
-                // Get single channel
                 var channel = Channels.Single();
+                var defaultFileName = ExportRequest.GetDefaultOutputFileName(Guild!, channel, SelectedFormat, After, Before);
 
-                // Generate default file name
-                var defaultFileName = ChannelExporter.GetDefaultExportFileName(Guild!, channel, SelectedFormat, After, Before);
-
-                // Generate filter
+                // Filter
                 var ext = SelectedFormat.GetFileExtension();
                 var filter = $"{ext.ToUpperInvariant()} files|*.{ext}";
 
-                // Prompt user
                 OutputPath = _dialogManager.PromptSaveFilePath(filter, defaultFileName);
             }
             // If multiple channels - prompt dir path
             else
             {
-                // Prompt user
                 OutputPath = _dialogManager.PromptDirectoryPath();
             }
 
@@ -81,7 +96,6 @@ namespace DiscordChatExporter.Gui.ViewModels.Dialogs
             if (string.IsNullOrWhiteSpace(OutputPath))
                 return;
 
-            // Close dialog
             Close(true);
         }
     }

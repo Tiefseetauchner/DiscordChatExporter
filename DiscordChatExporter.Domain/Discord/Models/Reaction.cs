@@ -1,9 +1,9 @@
 ﻿using System.Text.Json;
-using DiscordChatExporter.Domain.Internal;
+using DiscordChatExporter.Domain.Internal.Extensions;
 
 namespace DiscordChatExporter.Domain.Discord.Models
 {
-    // https://discordapp.com/developers/docs/resources/channel#reaction-object
+    // https://discord.com/developers/docs/resources/channel#reaction-object
     public partial class Reaction
     {
         public Emoji Emoji { get; }

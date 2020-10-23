@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using DiscordChatExporter.Domain.Discord.Models.Common;
-using DiscordChatExporter.Domain.Internal;
+using DiscordChatExporter.Domain.Internal.Extensions;
 
 namespace DiscordChatExporter.Domain.Discord.Models
 {
-    // https://discordapp.com/developers/docs/resources/channel#message-object-message-types
+    // https://discord.com/developers/docs/resources/channel#message-object-message-types
     public enum MessageType
     {
         Default,
@@ -20,7 +20,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
         GuildMemberJoin
     }
 
-    // https://discordapp.com/developers/docs/resources/channel#message-object
+    // https://discord.com/developers/docs/resources/channel#message-object
     public partial class Message : IHasId
     {
         public string Id { get; }
@@ -32,6 +32,8 @@ namespace DiscordChatExporter.Domain.Discord.Models
         public DateTimeOffset Timestamp { get; }
 
         public DateTimeOffset? EditedTimestamp { get; }
+
+        public DateTimeOffset? CallEndedTimestamp { get; }
 
         public bool IsPinned { get; }
 
@@ -51,6 +53,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
             User author,
             DateTimeOffset timestamp,
             DateTimeOffset? editedTimestamp,
+            DateTimeOffset? callEndedTimestamp,
             bool isPinned,
             string content,
             IReadOnlyList<Attachment> attachments,
@@ -63,6 +66,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
             Author = author;
             Timestamp = timestamp;
             EditedTimestamp = editedTimestamp;
+            CallEndedTimestamp = callEndedTimestamp;
             IsPinned = isPinned;
             Content = content;
             Attachments = attachments;
@@ -71,10 +75,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
             MentionedUsers = mentionedUsers;
         }
 
-        public override string ToString() =>
-            Content ?? (Embeds.Any()
-                ? "<embed>"
-                : "<no content>");
+        public override string ToString() => Content;
     }
 
     public partial class Message
@@ -85,6 +86,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
             var author = json.GetProperty("author").Pipe(User.Parse);
             var timestamp = json.GetProperty("timestamp").GetDateTimeOffset();
             var editedTimestamp = json.GetPropertyOrNull("edited_timestamp")?.GetDateTimeOffset();
+            var callEndedTimestamp = json.GetPropertyOrNull("call")?.GetPropertyOrNull("ended_timestamp")?.GetDateTimeOffset();
             var type = (MessageType) json.GetProperty("type").GetInt32();
             var isPinned = json.GetPropertyOrNull("pinned")?.GetBoolean() ?? false;
 
@@ -92,7 +94,8 @@ namespace DiscordChatExporter.Domain.Discord.Models
             {
                 MessageType.RecipientAdd => "Added a recipient.",
                 MessageType.RecipientRemove => "Removed a recipient.",
-                MessageType.Call => "Started a call.",
+                MessageType.Call =>
+                $"Started a call that lasted {callEndedTimestamp?.Pipe(t => t - timestamp).Pipe(t => (int) t.TotalMinutes) ?? 0} minutes.",
                 MessageType.ChannelNameChange => "Changed the channel name.",
                 MessageType.ChannelIconChange => "Changed the channel icon.",
                 MessageType.ChannelPinnedMessage => "Pinned a message.",
@@ -122,6 +125,7 @@ namespace DiscordChatExporter.Domain.Discord.Models
                 author,
                 timestamp,
                 editedTimestamp,
+                callEndedTimestamp,
                 isPinned,
                 content,
                 attachments,

@@ -1,12 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using DiscordChatExporter.Domain.Discord.Models;
 using DiscordChatExporter.Domain.Exporting.Writers.MarkdownVisitors;
-using DiscordChatExporter.Domain.Internal;
+using Tyrrrz.Extensions;
 
 namespace DiscordChatExporter.Domain.Exporting.Writers
 {
@@ -25,151 +23,134 @@ namespace DiscordChatExporter.Domain.Exporting.Writers
         private string FormatMarkdown(string? markdown) =>
             PlainTextMarkdownVisitor.Format(Context, markdown ?? "");
 
-        private string FormatMessageHeader(Message message)
+        private async ValueTask WriteMessageHeaderAsync(Message message)
         {
-            var buffer = new StringBuilder();
-
             // Timestamp & author
-            buffer
-                .Append($"[{message.Timestamp.ToLocalString(Context.DateFormat)}]")
-                .Append(' ')
-                .Append($"{message.Author.FullName}");
+            await _writer.WriteAsync($"[{Context.FormatDate(message.Timestamp)}]");
+            await _writer.WriteAsync($" {message.Author.FullName}");
 
             // Whether the message is pinned
             if (message.IsPinned)
-                buffer.Append(' ').Append("(pinned)");
+                await _writer.WriteAsync(" (pinned)");
 
-            return buffer.ToString();
+            await _writer.WriteLineAsync();
         }
 
-        private string FormatAttachments(IReadOnlyList<Attachment> attachments)
+        private async ValueTask WriteAttachmentsAsync(IReadOnlyList<Attachment> attachments)
         {
             if (!attachments.Any())
-                return "";
+                return;
 
-            var buffer = new StringBuilder();
+            await _writer.WriteLineAsync("{Attachments}");
 
-            buffer
-                .AppendLine("{Attachments}")
-                .AppendJoin(Environment.NewLine, attachments.Select(a => a.Url))
-                .AppendLine();
+            foreach (var attachment in attachments)
+                await _writer.WriteLineAsync(await Context.ResolveMediaUrlAsync(attachment.Url));
 
-            return buffer.ToString();
+            await _writer.WriteLineAsync();
         }
 
-        private string FormatEmbeds(IReadOnlyList<Embed> embeds)
+        private async ValueTask WriteEmbedsAsync(IReadOnlyList<Embed> embeds)
         {
-            if (!embeds.Any())
-                return "";
-
-            var buffer = new StringBuilder();
-
             foreach (var embed in embeds)
             {
-                buffer
-                    .AppendLine("{Embed}")
-                    .AppendLineIfNotNullOrWhiteSpace(embed.Author?.Name)
-                    .AppendLineIfNotNullOrWhiteSpace(embed.Url)
-                    .AppendLineIfNotNullOrWhiteSpace(FormatMarkdown(embed.Title))
-                    .AppendLineIfNotNullOrWhiteSpace(FormatMarkdown(embed.Description));
+                await _writer.WriteLineAsync("{Embed}");
+
+                if (!string.IsNullOrWhiteSpace(embed.Author?.Name))
+                    await _writer.WriteLineAsync(embed.Author.Name);
+
+                if (!string.IsNullOrWhiteSpace(embed.Url))
+                    await _writer.WriteLineAsync(embed.Url);
+
+                if (!string.IsNullOrWhiteSpace(embed.Title))
+                    await _writer.WriteLineAsync(FormatMarkdown(embed.Title));
+
+                if (!string.IsNullOrWhiteSpace(embed.Description))
+                    await _writer.WriteLineAsync(FormatMarkdown(embed.Description));
 
                 foreach (var field in embed.Fields)
                 {
-                    buffer
-                        .AppendLineIfNotNullOrWhiteSpace(FormatMarkdown(field.Name))
-                        .AppendLineIfNotNullOrWhiteSpace(FormatMarkdown(field.Value));
+                    if (!string.IsNullOrWhiteSpace(field.Name))
+                        await _writer.WriteLineAsync(FormatMarkdown(field.Name));
+
+                    if (!string.IsNullOrWhiteSpace(field.Value))
+                        await _writer.WriteLineAsync(FormatMarkdown(field.Value));
                 }
 
-                buffer
-                    .AppendLineIfNotNullOrWhiteSpace(embed.Thumbnail?.Url)
-                    .AppendLineIfNotNullOrWhiteSpace(embed.Image?.Url)
-                    .AppendLineIfNotNullOrWhiteSpace(embed.Footer?.Text)
-                    .AppendLine();
-            }
+                if (!string.IsNullOrWhiteSpace(embed.Thumbnail?.Url))
+                    await _writer.WriteLineAsync(await Context.ResolveMediaUrlAsync(embed.Thumbnail.Url));
 
-            return buffer.ToString();
+                if (!string.IsNullOrWhiteSpace(embed.Image?.Url))
+                    await _writer.WriteLineAsync(await Context.ResolveMediaUrlAsync(embed.Image.Url));
+
+                if (!string.IsNullOrWhiteSpace(embed.Footer?.Text))
+                    await _writer.WriteLineAsync(embed.Footer.Text);
+
+                await _writer.WriteLineAsync();
+            }
         }
 
-        private string FormatReactions(IReadOnlyList<Reaction> reactions)
+        private async ValueTask WriteReactionsAsync(IReadOnlyList<Reaction> reactions)
         {
             if (!reactions.Any())
-                return "";
+                return;
 
-            var buffer = new StringBuilder();
-
-            buffer.AppendLine("{Reactions}");
+            await _writer.WriteLineAsync("{Reactions}");
 
             foreach (var reaction in reactions)
             {
-                buffer.Append(reaction.Emoji.Name);
+                await _writer.WriteAsync(reaction.Emoji.Name);
 
                 if (reaction.Count > 1)
-                    buffer.Append($" ({reaction.Count})");
+                    await _writer.WriteAsync($" ({reaction.Count})");
 
-                buffer.Append(" ");
+                await _writer.WriteAsync(' ');
             }
 
-            buffer.AppendLine();
-
-            return buffer.ToString();
+            await _writer.WriteLineAsync();
         }
 
-        private string FormatMessage(Message message)
+        public override async ValueTask WritePreambleAsync()
         {
-            var buffer = new StringBuilder();
+            await _writer.WriteLineAsync('='.Repeat(62));
+            await _writer.WriteLineAsync($"Guild: {Context.Request.Guild.Name}");
+            await _writer.WriteLineAsync($"Channel: {Context.Request.Channel.Category} / {Context.Request.Channel.Name}");
 
-            buffer
-                .AppendLine(FormatMessageHeader(message))
-                .AppendLineIfNotNullOrWhiteSpace(FormatMarkdown(message.Content))
-                .AppendLine()
-                .AppendLineIfNotNullOrWhiteSpace(FormatAttachments(message.Attachments))
-                .AppendLineIfNotNullOrWhiteSpace(FormatEmbeds(message.Embeds))
-                .AppendLineIfNotNullOrWhiteSpace(FormatReactions(message.Reactions));
+            if (!string.IsNullOrWhiteSpace(Context.Request.Channel.Topic))
+                await _writer.WriteLineAsync($"Topic: {Context.Request.Channel.Topic}");
 
-            return buffer.Trim().ToString();
+            if (Context.Request.After != null)
+                await _writer.WriteLineAsync($"After: {Context.FormatDate(Context.Request.After.Value)}");
+
+            if (Context.Request.Before != null)
+                await _writer.WriteLineAsync($"Before: {Context.FormatDate(Context.Request.Before.Value)}");
+
+            await _writer.WriteLineAsync('='.Repeat(62));
+            await _writer.WriteLineAsync();
         }
 
-        public override async Task WritePreambleAsync()
+        public override async ValueTask WriteMessageAsync(Message message)
         {
-            var buffer = new StringBuilder();
+            await WriteMessageHeaderAsync(message);
 
-            buffer.Append('=', 62).AppendLine();
-            buffer.AppendLine($"Guild: {Context.Guild.Name}");
-            buffer.AppendLine($"Channel: {Context.Channel.Category} / {Context.Channel.Name}");
+            if (!string.IsNullOrWhiteSpace(message.Content))
+                await _writer.WriteLineAsync(FormatMarkdown(message.Content));
 
-            if (!string.IsNullOrWhiteSpace(Context.Channel.Topic))
-                buffer.AppendLine($"Topic: {Context.Channel.Topic}");
+            await _writer.WriteLineAsync();
 
-            if (Context.After != null)
-                buffer.AppendLine($"After: {Context.After.Value.ToLocalString(Context.DateFormat)}");
+            await WriteAttachmentsAsync(message.Attachments);
+            await WriteEmbedsAsync(message.Embeds);
+            await WriteReactionsAsync(message.Reactions);
 
-            if (Context.Before != null)
-                buffer.AppendLine($"Before: {Context.Before.Value.ToLocalString(Context.DateFormat)}");
-
-            buffer.Append('=', 62).AppendLine();
-
-            await _writer.WriteLineAsync(buffer.ToString());
-        }
-
-        public override async Task WriteMessageAsync(Message message)
-        {
-            await _writer.WriteLineAsync(FormatMessage(message));
             await _writer.WriteLineAsync();
 
             _messageCount++;
         }
 
-        public override async Task WritePostambleAsync()
+        public override async ValueTask WritePostambleAsync()
         {
-            var buffer = new StringBuilder();
-
-            buffer
-                .Append('=', 62).AppendLine()
-                .AppendLine($"Exported {_messageCount:N0} message(s)")
-                .Append('=', 62).AppendLine()
-                .AppendLine();
-
-            await _writer.WriteLineAsync(buffer.ToString());
+            await _writer.WriteLineAsync('='.Repeat(62));
+            await _writer.WriteLineAsync($"Exported {_messageCount:N0} message(s)");
+            await _writer.WriteLineAsync('='.Repeat(62));
         }
 
         public override async ValueTask DisposeAsync()
